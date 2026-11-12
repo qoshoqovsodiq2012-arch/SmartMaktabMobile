@@ -17,8 +17,35 @@ jobs:
 
       - name: Extract project
         run: |
-          unzip -o SmartMaktab.zip -d . || true
-          test -f mobile/pubspec.yaml
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+          import shutil
+
+          with zipfile.ZipFile("SmartMaktab.zip") as z:
+              for item in z.infolist():
+                  name = item.filename.replace("\\", "/").strip("/")
+                  if not name:
+                      continue
+
+                  if name == "mobile/android" or name.startswith("mobile/android/"):
+                      continue
+
+                  path = Path(name)
+                  if item.is_dir():
+                      path.mkdir(parents=True, exist_ok=True)
+                  else:
+                      path.parent.mkdir(parents=True, exist_ok=True)
+                      path.write_bytes(z.read(item.filename))
+
+          android = Path("mobile/android")
+          if android.is_dir():
+              shutil.rmtree(android)
+          elif android.exists():
+              android.unlink()
+
+          assert Path("mobile/pubspec.yaml").is_file(), "mobile/pubspec.yaml topilmadi"
+          PY
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -31,10 +58,14 @@ jobs:
         with:
           channel: stable
 
-      - name: Build APK
+      - name: Create Android project
         run: |
           cd mobile
           flutter create . --platforms=android
+
+      - name: Build APK
+        run: |
+          cd mobile
           flutter pub get
           flutter build apk --release
 
