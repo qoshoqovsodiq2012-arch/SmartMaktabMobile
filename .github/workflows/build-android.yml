@@ -4,47 +4,52 @@ name: Build SmartMaktab APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unzip project
+      - name: Extract SmartMaktab ZIP
         run: |
           python3 - <<'PY'
           import zipfile
           from pathlib import Path
 
-          with zipfile.ZipFile("SmartMaktab.zip") as z:
-              for item in z.infolist():
+          with zipfile.ZipFile("SmartMaktab.zip") as archive:
+              for item in archive.infolist():
                   name = item.filename.replace("\\", "/")
-                  if not name:
-                      continue
                   path = Path(name)
+
                   if item.is_dir():
                       path.mkdir(parents=True, exist_ok=True)
                   else:
                       path.parent.mkdir(parents=True, exist_ok=True)
-                      path.write_bytes(z.read(item.filename))
+                      path.write_bytes(archive.read(item.filename))
           PY
+
+      - name: Check project
+        run: |
+          ls -la
+          test -f mobile/pubspec.yaml
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Build APK
+      - name: Build Android APK
         run: |
           cd mobile
           flutter create . --platforms=android
