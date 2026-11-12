@@ -1,40 +1,45 @@
 
-      - name: Unzip project
+name: Build SmartMaktab APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract project
         run: |
-          python3 - <<'PY'
-          import zipfile
-          from pathlib import Path
+          unzip -o SmartMaktab.zip -d . || true
+          test -f mobile/pubspec.yaml
 
-          with zipfile.ZipFile("SmartMaktab.zip") as z:
-              files = {}
-              dirs = set()
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
-              for item in z.infolist():
-                  name = item.filename.replace("\\", "/").strip("/")
-                  if not name:
-                      continue
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
 
-                  parts = name.split("/")
-                  for i in range(1, len(parts)):
-                      dirs.add("/".join(parts[:i]))
+      - name: Build APK
+        run: |
+          cd mobile
+          flutter create . --platforms=android
+          flutter pub get
+          flutter build apk --release
 
-                  if item.is_dir():
-                      dirs.add(name)
-                  else:
-                      files[name] = item
-
-              for name in sorted(dirs):
-                  p = Path(name)
-                  if p.exists() and p.is_file():
-                      p.unlink()
-                  p.mkdir(parents=True, exist_ok=True)
-
-              for name, item in files.items():
-                  if name in dirs:
-                      continue
-                  p = Path(name)
-                  p.parent.mkdir(parents=True, exist_ok=True)
-                  if p.exists() and p.is_dir():
-                      continue
-                  p.write_bytes(z.read(item))
-          PY
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartMaktab-APK
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
