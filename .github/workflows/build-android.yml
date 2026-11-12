@@ -1,3 +1,4 @@
+
 name: Build SmartMaktab APK
 
 on:
@@ -8,13 +9,29 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Unzip project
-  run: |
-    python3 -c "import zipfile; z=zipfile.ZipFile('SmartMaktab.zip'); z.extractall('.')"
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+
+          with zipfile.ZipFile("SmartMaktab.zip") as z:
+              for item in z.infolist():
+                  name = item.filename.replace("\\", "/")
+                  if not name:
+                      continue
+                  path = Path(name)
+                  if item.is_dir():
+                      path.mkdir(parents=True, exist_ok=True)
+                  else:
+                      path.parent.mkdir(parents=True, exist_ok=True)
+                      path.write_bytes(z.read(item.filename))
+          PY
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
